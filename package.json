@@ -1,0 +1,17 @@
+{
+  "name": "s3-image-upload",
+  "version": "1.0.0",
+  "description": "Elm app to conveniently upload images to AWS S3",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Tomáš Znamenáček <tomas.znamenacek@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "elm": "^0.19.0-no-deps"
+  },
+  "devDependencies": {
+    "elm-format": "^0.8.2"
+  }
+}
