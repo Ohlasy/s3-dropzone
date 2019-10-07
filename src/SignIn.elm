@@ -3,7 +3,7 @@ module SignIn exposing (Model, Msg, init, update, viewForm)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
-import Session exposing (Session)
+import Session exposing (Session, encodeSession, saveSession)
 
 
 type alias Form =
@@ -38,7 +38,7 @@ update msg model =
             ( FillingForm { form | secretKey = s }, Cmd.none, Nothing )
 
         ( FillingForm form, SubmitForm ) ->
-            ( SignedIn form, Cmd.none, Just form )
+            ( SignedIn form, form |> encodeSession |> saveSession, Just form )
 
         default ->
             ( model, Cmd.none, Nothing )

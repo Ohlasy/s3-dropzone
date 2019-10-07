@@ -8,7 +8,7 @@ import Html.Events exposing (..)
 import Http
 import Json.Decode as D
 import S3
-import Session exposing (Session)
+import Session exposing (Session, decodeSession, deleteSession)
 import SignIn
 
 
@@ -40,9 +40,22 @@ type Model
     | SignedIn Session UploadModel
 
 
-init : () -> ( Model, Cmd Msg )
-init _ =
-    ( SignedOut SignIn.init, Cmd.none )
+type alias Flags =
+    D.Value
+
+
+init : Flags -> ( Model, Cmd Msg )
+init flags =
+    let
+        decodeFlags =
+            D.field "session" decodeSession
+    in
+    case D.decodeValue decodeFlags flags of
+        Err _ ->
+            ( SignedOut SignIn.init, Cmd.none )
+
+        Ok session ->
+            ( SignedIn session SelectingFile, Cmd.none )
 
 
 
@@ -53,6 +66,7 @@ type Msg
     = SignInMsg SignIn.Msg
     | GotFiles (List File)
     | ReceiveS3Response (Result Http.Error S3.Response)
+    | SignOut
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -63,8 +77,8 @@ update msg model =
                 ( updatedModel, cmd, Nothing ) ->
                     ( SignedOut updatedModel, Cmd.map SignInMsg cmd )
 
-                ( _, _, Just session ) ->
-                    ( SignedIn session SelectingFile, Cmd.none )
+                ( _, cmd, Just session ) ->
+                    ( SignedIn session SelectingFile, Cmd.map SignInMsg cmd )
 
         ( SignedIn session SelectingFile, GotFiles files ) ->
             case List.head files of
@@ -76,6 +90,9 @@ update msg model =
 
         ( SignedIn session (UploadingFile _), ReceiveS3Response result ) ->
             ( SignedIn session (UploadFinished result), Cmd.none )
+
+        ( SignedIn _ _, SignOut ) ->
+            ( SignedOut SignIn.init, deleteSession )
 
         default ->
             ( model, Cmd.none )
@@ -148,6 +165,10 @@ uploadForm =
             , on "change" (D.map GotFiles filesDecoder)
             ]
             []
+        , Html.br [] []
+        , button
+            [ onClick SignOut ]
+            [ text "Sign Out" ]
         ]
 
 

@@ -9,8 +9,14 @@
 <body>
     <div id="main"></div>
     <script>
-        Elm.Main.init({
-            node: document.getElementById('main')
+        const app = Elm.Main.init({
+            node: document.getElementById('main'),
+            flags: {
+                "session": JSON.parse(localStorage.getItem("session"))
+            }
+        });
+        app.ports.saveSession.subscribe(function(data) {
+            localStorage.setItem("session", JSON.stringify(data));
         });
     </script>
 </body>
