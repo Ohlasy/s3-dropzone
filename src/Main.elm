@@ -27,15 +27,33 @@ main =
 -- MODEL
 
 
-type Model
+type alias Session =
+    { accessKey : String
+    , secretKey : String
+    }
+
+
+type alias SignInFormModel =
+    { accessKey : String
+    , secretKey : String
+    }
+
+
+type UploadModel
     = SelectingFile
     | UploadingFile File
     | UploadFinished (Result Http.Error S3.Response)
 
 
+type Model
+    = SignedOut SignInFormModel
+    | SignedIn Session UploadModel
+    | InvalidState String
+
+
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( SelectingFile, Cmd.none )
+    ( SignedOut { accessKey = "", secretKey = "" }, Cmd.none )
 
 
 
@@ -43,46 +61,65 @@ init _ =
 
 
 type Msg
-    = GotFiles (List File)
+    = UpdateAccessKey String
+    | UpdateSecretKey String
+    | SignIn
+    | GotFiles (List File)
     | ReceiveS3Response (Result Http.Error S3.Response)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    case msg of
-        GotFiles files ->
+    case ( model, msg ) of
+        ( SignedOut form, UpdateAccessKey s ) ->
+            ( SignedOut { form | accessKey = s }, Cmd.none )
+
+        ( SignedOut form, UpdateSecretKey s ) ->
+            ( SignedOut { form | secretKey = s }, Cmd.none )
+
+        ( SignedOut form, SignIn ) ->
+            ( SignedIn form SelectingFile, Cmd.none )
+
+        ( SignedIn session SelectingFile, GotFiles files ) ->
             case List.head files of
                 Just file ->
-                    ( UploadingFile file, uploadFile file )
+                    ( SignedIn session (UploadingFile file), uploadFile session file )
 
                 Nothing ->
-                    ( SelectingFile, Cmd.none )
+                    ( SignedIn session SelectingFile, Cmd.none )
 
-        ReceiveS3Response result ->
-            ( UploadFinished result, Cmd.none )
+        ( SignedIn session (UploadingFile _), ReceiveS3Response result ) ->
+            ( SignedIn session (UploadFinished result), Cmd.none )
+
+        default ->
+            ( InvalidState (Debug.toString model), Cmd.none )
 
 
-s3Config : S3.Config
-s3Config =
+s3Config : Session -> S3.Config
+s3Config session =
     S3.config
-        { accessKey = "…"
-        , secretKey = "…"
+        { accessKey = session.accessKey
+        , secretKey = session.secretKey
         , bucket = "test-ohlasy-info"
         , region = "eu-central-1"
         }
         |> S3.withAwsS3Host "s3.eu-central-1.amazonaws.com"
+        |> S3.withPrefix "test"
 
 
-uploadFile : File -> Cmd Msg
-uploadFile file =
+uploadFile : Session -> File -> Cmd Msg
+uploadFile session file =
     let
         metadata =
             { fileName = File.name file
             , contentType = File.mime file
             , file = file
             }
+
+        config =
+            s3Config session
     in
-    S3.uploadFile metadata s3Config ReceiveS3Response
+    S3.uploadFile metadata config ReceiveS3Response
 
 
 filesDecoder : D.Decoder (List File)
@@ -97,13 +134,16 @@ filesDecoder =
 view : Model -> Html Msg
 view model =
     case model of
-        SelectingFile ->
+        SignedOut _ ->
+            signInForm
+
+        SignedIn _ SelectingFile ->
             uploadForm
 
-        UploadingFile file ->
+        SignedIn _ (UploadingFile file) ->
             Html.text ("Uploading “" ++ File.name file ++ "”…")
 
-        UploadFinished result ->
+        SignedIn _ (UploadFinished result) ->
             case result of
                 Err e ->
                     Html.text ("Error: " ++ Debug.toString e)
@@ -111,6 +151,33 @@ view model =
                 Ok { location } ->
                     Html.a [ href location ]
                         [ Html.text "Uploaded!" ]
+
+        InvalidState s ->
+            Html.text ("Invalid state: " ++ s)
+
+
+signInForm : Html Msg
+signInForm =
+    div []
+        [ input
+            [ type_ "text"
+            , onInput UpdateAccessKey
+            , placeholder "access key"
+            ]
+            []
+        , input
+            [ type_ "password"
+            , onInput UpdateSecretKey
+            , placeholder "secret key"
+            ]
+            []
+        , input
+            [ type_ "submit"
+            , value "Sign In"
+            , onClick SignIn
+            ]
+            []
+        ]
 
 
 uploadForm : Html Msg
