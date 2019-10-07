@@ -1,4 +1,4 @@
-module Main exposing (Model, Msg(..), filesDecoder, init, main, subscriptions, update, view)
+module Main exposing (Model, Msg, filesDecoder, init, main, subscriptions, update, view)
 
 import Browser
 import File exposing (File)
@@ -8,6 +8,8 @@ import Html.Events exposing (..)
 import Http
 import Json.Decode as D
 import S3
+import Session exposing (Session)
+import SignIn
 
 
 
@@ -27,18 +29,6 @@ main =
 -- MODEL
 
 
-type alias Session =
-    { accessKey : String
-    , secretKey : String
-    }
-
-
-type alias SignInFormModel =
-    { accessKey : String
-    , secretKey : String
-    }
-
-
 type UploadModel
     = SelectingFile
     | UploadingFile File
@@ -46,14 +36,13 @@ type UploadModel
 
 
 type Model
-    = SignedOut SignInFormModel
+    = SignedOut SignIn.Model
     | SignedIn Session UploadModel
-    | InvalidState String
 
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( SignedOut { accessKey = "", secretKey = "" }, Cmd.none )
+    ( SignedOut SignIn.init, Cmd.none )
 
 
 
@@ -61,9 +50,7 @@ init _ =
 
 
 type Msg
-    = UpdateAccessKey String
-    | UpdateSecretKey String
-    | SignIn
+    = SignInMsg SignIn.Msg
     | GotFiles (List File)
     | ReceiveS3Response (Result Http.Error S3.Response)
 
@@ -71,14 +58,13 @@ type Msg
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case ( model, msg ) of
-        ( SignedOut form, UpdateAccessKey s ) ->
-            ( SignedOut { form | accessKey = s }, Cmd.none )
+        ( SignedOut lmodel, SignInMsg lmsg ) ->
+            case SignIn.update lmsg lmodel of
+                ( updatedModel, cmd, Nothing ) ->
+                    ( SignedOut updatedModel, Cmd.map SignInMsg cmd )
 
-        ( SignedOut form, UpdateSecretKey s ) ->
-            ( SignedOut { form | secretKey = s }, Cmd.none )
-
-        ( SignedOut form, SignIn ) ->
-            ( SignedIn form SelectingFile, Cmd.none )
+                ( _, _, Just session ) ->
+                    ( SignedIn session SelectingFile, Cmd.none )
 
         ( SignedIn session SelectingFile, GotFiles files ) ->
             case List.head files of
@@ -92,7 +78,7 @@ update msg model =
             ( SignedIn session (UploadFinished result), Cmd.none )
 
         default ->
-            ( InvalidState (Debug.toString model), Cmd.none )
+            ( model, Cmd.none )
 
 
 s3Config : Session -> S3.Config
@@ -135,7 +121,7 @@ view : Model -> Html Msg
 view model =
     case model of
         SignedOut _ ->
-            signInForm
+            SignIn.viewForm |> Html.map SignInMsg
 
         SignedIn _ SelectingFile ->
             uploadForm
@@ -151,33 +137,6 @@ view model =
                 Ok { location } ->
                     Html.a [ href location ]
                         [ Html.text "Uploaded!" ]
-
-        InvalidState s ->
-            Html.text ("Invalid state: " ++ s)
-
-
-signInForm : Html Msg
-signInForm =
-    div []
-        [ input
-            [ type_ "text"
-            , onInput UpdateAccessKey
-            , placeholder "access key"
-            ]
-            []
-        , input
-            [ type_ "password"
-            , onInput UpdateSecretKey
-            , placeholder "secret key"
-            ]
-            []
-        , input
-            [ type_ "submit"
-            , value "Sign In"
-            , onClick SignIn
-            ]
-            []
-        ]
 
 
 uploadForm : Html Msg
