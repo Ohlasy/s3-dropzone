@@ -1,12 +1,13 @@
 port module Session exposing (..)
 
-import Json.Decode exposing (Decoder, field, map2, string)
+import Json.Decode exposing (Decoder, field, map3, string)
 import Json.Encode as E
 
 
 type alias Session =
     { accessKey : String
     , secretKey : String
+    , bucket : String
     }
 
 
@@ -23,11 +24,13 @@ encodeSession session =
     E.object
         [ ( "accessKey", E.string session.accessKey )
         , ( "secretKey", E.string session.secretKey )
+        , ( "bucket", E.string session.bucket )
         ]
 
 
 decodeSession : Decoder Session
 decodeSession =
-    map2 Session
+    map3 Session
         (field "accessKey" string)
         (field "secretKey" string)
+        (field "bucket" string)

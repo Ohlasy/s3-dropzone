@@ -10,11 +10,11 @@ import Test exposing (..)
 suite : Test
 suite =
     describe "Session"
-        [ fuzz2 string string "Encoding roundtrip" <|
-            \x y ->
+        [ fuzz3 string string string "Encoding roundtrip" <|
+            \x y z ->
                 let
                     session =
-                        { accessKey = x, secretKey = y }
+                        { accessKey = x, secretKey = y, bucket = z }
                 in
                 session
                     |> encodeSession

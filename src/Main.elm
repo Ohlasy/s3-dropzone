@@ -118,7 +118,7 @@ s3Config session =
     S3.config
         { accessKey = session.accessKey
         , secretKey = session.secretKey
-        , bucket = "test-ohlasy-info"
+        , bucket = session.bucket
         , region = "eu-central-1"
         }
         |> S3.withAwsS3Host "s3.eu-central-1.amazonaws.com"

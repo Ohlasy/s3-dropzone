@@ -10,6 +10,7 @@ import Session exposing (Session, encodeSession, saveSession)
 type alias Form =
     { accessKey : String
     , secretKey : String
+    , bucket : String
     }
 
 
@@ -21,12 +22,13 @@ type Model
 type Msg
     = UpdateAccessKey String
     | UpdateSecretKey String
+    | UpdateBucket String
     | SubmitForm
 
 
 init : Model
 init =
-    FillingForm { accessKey = "", secretKey = "" }
+    FillingForm { accessKey = "", secretKey = "", bucket = "" }
 
 
 update : Msg -> Model -> ( Model, Cmd Msg, Maybe Session )
@@ -37,6 +39,9 @@ update msg model =
 
         ( FillingForm form, UpdateSecretKey s ) ->
             ( FillingForm { form | secretKey = s }, Cmd.none, Nothing )
+
+        ( FillingForm form, UpdateBucket s ) ->
+            ( FillingForm { form | bucket = s }, Cmd.none, Nothing )
 
         ( FillingForm form, SubmitForm ) ->
             ( SignedIn form, form |> encodeSession |> saveSession, Just form )
@@ -55,6 +60,13 @@ viewForm =
         { title = Nothing
         , content =
             [ textField
+                { textFieldConfig
+                    | placeholder = Just "Bucket Name"
+                    , onInput = Just UpdateBucket
+                    , fullwidth = True
+                    , required = True
+                }
+            , textField
                 { textFieldConfig
                     | onInput = Just UpdateAccessKey
                     , fullwidth = True
