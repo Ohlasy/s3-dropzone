@@ -1,9 +1,14 @@
 module Upload exposing (..)
 
 import File exposing (File)
-import Html exposing (..)
-import Html.Attributes exposing (href)
+import Html exposing (Html, text)
+import Html.Attributes exposing (href, style)
 import Http
+import Material.Card exposing (..)
+import Material.Icon exposing (icon, iconConfig)
+import Material.LayoutGrid as LayoutGrid exposing (layoutGridCell)
+import Material.TextField exposing (textField, textFieldConfig)
+import Material.Typography as Typography
 import S3
 import Session exposing (Session)
 
@@ -103,26 +108,42 @@ startNextJob model =
 
 viewJob : Job -> Html a
 viewJob job =
-    div []
-        [ Html.text (File.name job.file)
-        , Html.text ": "
-        , viewStatus job.status
+    layoutGridCell [ LayoutGrid.span2Desktop ]
+        [ card cardConfig
+            { blocks =
+                [ cardMedia { cardMediaConfig | aspect = Just SixteenToNine } (coverImageForJob job)
+                , cardBlock <|
+                    Html.div [ style "padding" "10px" ]
+                        [ Html.h2 [] [ text (File.name job.file) ]
+                        , Html.p [] [ viewStatus job.status ]
+                        ]
+                ]
+            , actions = Nothing
+            }
         ]
+
+
+coverImageForJob : Job -> String
+coverImageForJob job =
+    case job.status of
+        Finished (Ok { location }) ->
+            location
+
+        default ->
+            "placeholder.jpg"
 
 
 viewStatus : JobStatus -> Html a
 viewStatus s =
     case s of
         Pending ->
-            Html.text "Waiting"
+            Html.text "Waiting."
 
         Running ->
-            Html.text "Uploading"
+            Html.text "Uploading…"
 
-        Finished result ->
-            case result of
-                Ok response ->
-                    Html.a [ href response.location ] [ Html.text "Uploaded" ]
+        Finished (Ok { location }) ->
+            Html.a [ href location ] [ Html.text "Uploaded" ]
 
-                Err e ->
-                    Html.text ("Failed: " ++ Debug.toString e)
+        Finished (Err e) ->
+            Html.text ("Failed: " ++ Debug.toString e)

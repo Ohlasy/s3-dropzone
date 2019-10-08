@@ -1,8 +1,9 @@
 module SignIn exposing (Model, Msg, init, update, viewForm)
 
-import Html exposing (..)
-import Html.Attributes exposing (..)
-import Html.Events exposing (..)
+import Html exposing (Html)
+import Material.Button exposing (buttonConfig, textButton)
+import Material.Dialog exposing (dialog, dialogConfig)
+import Material.TextField exposing (textField, textFieldConfig)
 import Session exposing (Session, encodeSession, saveSession)
 
 
@@ -46,23 +47,34 @@ update msg model =
 
 viewForm : Html Msg
 viewForm =
-    div []
-        [ input
-            [ type_ "text"
-            , onInput UpdateAccessKey
-            , placeholder "access key"
+    dialog
+        { dialogConfig
+            | open = True
+            , onClose = Nothing
+        }
+        { title = Nothing
+        , content =
+            [ textField
+                { textFieldConfig
+                    | onInput = Just UpdateAccessKey
+                    , fullwidth = True
+                    , placeholder = Just "Access Key"
+                    , required = True
+                }
+            , textField
+                { textFieldConfig
+                    | placeholder = Just "Secret Key"
+                    , onInput = Just UpdateSecretKey
+                    , fullwidth = True
+                    , required = True
+                    , type_ = "password"
+                }
             ]
-            []
-        , input
-            [ type_ "password"
-            , onInput UpdateSecretKey
-            , placeholder "secret key"
+        , actions =
+            [ textButton
+                { buttonConfig
+                    | onClick = Just SubmitForm
+                }
+                "Sign In"
             ]
-            []
-        , input
-            [ type_ "submit"
-            , value "Sign In"
-            , onClick SubmitForm
-            ]
-            []
-        ]
+        }

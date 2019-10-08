@@ -7,6 +7,10 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Http
 import Json.Decode as D
+import Material.IconButton exposing (iconButton, iconButtonConfig)
+import Material.LayoutGrid as LayoutGrid exposing (layoutGrid, layoutGridCell, layoutGridInner)
+import Material.TopAppBar as TopAppBar exposing (topAppBar, topAppBarConfig)
+import Material.Typography as Typography
 import S3
 import Session exposing (Session, decodeSession, deleteSession)
 import SignIn
@@ -147,12 +151,38 @@ filesDecoder =
 
 view : Model -> Html Msg
 view model =
+    Html.div [ Typography.typography ]
+        [ viewTopAppBar
+        , Html.div [ TopAppBar.fixedAdjust ]
+            [ viewContent model ]
+        ]
+
+
+viewTopAppBar : Html Msg
+viewTopAppBar =
+    topAppBar topAppBarConfig
+        [ TopAppBar.row []
+            [ TopAppBar.section [ TopAppBar.alignStart ]
+                [ Html.span [ TopAppBar.title ] [ text "S3 Dropzone" ] ]
+            , TopAppBar.section [ TopAppBar.alignEnd ]
+                [ iconButton { iconButtonConfig | onClick = Just SignOut, label = Just "Sign Out" } "exit_to_app" ]
+            ]
+        ]
+
+
+viewContent : Model -> Html Msg
+viewContent model =
     case model of
         SignedOut _ ->
             SignIn.viewForm |> Html.map SignInMsg
 
         SignedIn _ jobs ->
-            div [] (List.map Upload.viewJob (Upload.allJobs jobs) ++ [ uploadForm ])
+            div []
+                [ layoutGrid []
+                    [ layoutGridInner [] (List.map Upload.viewJob (Upload.allJobs jobs))
+                    ]
+                , uploadForm
+                ]
 
 
 uploadForm : Html Msg
@@ -164,10 +194,6 @@ uploadForm =
             , on "change" (D.map GotFiles filesDecoder)
             ]
             []
-        , Html.br [] []
-        , button
-            [ onClick SignOut ]
-            [ text "Sign Out" ]
         ]
 
 
