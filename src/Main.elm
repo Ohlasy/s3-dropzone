@@ -10,6 +10,7 @@ import Json.Decode as D
 import S3
 import Session exposing (Session, decodeSession, deleteSession)
 import SignIn
+import Upload
 
 
 
@@ -29,15 +30,9 @@ main =
 -- MODEL
 
 
-type UploadModel
-    = SelectingFile
-    | UploadingFile File
-    | UploadFinished (Result Http.Error S3.Response)
-
-
 type Model
     = SignedOut SignIn.Model
-    | SignedIn Session UploadModel
+    | SignedIn Session Upload.Model
 
 
 type alias Flags =
@@ -55,7 +50,7 @@ init flags =
             ( SignedOut SignIn.init, Cmd.none )
 
         Ok session ->
-            ( SignedIn session SelectingFile, Cmd.none )
+            ( SignedIn session Upload.init, Cmd.none )
 
 
 
@@ -78,18 +73,31 @@ update msg model =
                     ( SignedOut updatedModel, Cmd.map SignInMsg cmd )
 
                 ( _, cmd, Just session ) ->
-                    ( SignedIn session SelectingFile, Cmd.map SignInMsg cmd )
+                    ( SignedIn session Upload.init, Cmd.map SignInMsg cmd )
 
-        ( SignedIn session SelectingFile, GotFiles files ) ->
-            case List.head files of
-                Just file ->
-                    ( SignedIn session (UploadingFile file), uploadFile session file )
+        ( SignedIn session jobs, GotFiles files ) ->
+            let
+                ( updatedJobs, startedJob ) =
+                    Upload.addJobs jobs files |> Upload.startNextJob
+            in
+            case startedJob of
+                Just job ->
+                    ( SignedIn session updatedJobs, uploadFile session job.file )
 
                 Nothing ->
-                    ( SignedIn session SelectingFile, Cmd.none )
+                    ( SignedIn session updatedJobs, Cmd.none )
 
-        ( SignedIn session (UploadingFile _), ReceiveS3Response result ) ->
-            ( SignedIn session (UploadFinished result), Cmd.none )
+        ( SignedIn session jobs, ReceiveS3Response result ) ->
+            let
+                ( updatedJobs, nextJob ) =
+                    Upload.finishCurrentJob jobs result |> Upload.startNextJob
+            in
+            case nextJob of
+                Just job ->
+                    ( SignedIn session updatedJobs, uploadFile session job.file )
+
+                Nothing ->
+                    ( SignedIn session updatedJobs, Cmd.none )
 
         ( SignedIn _ _, SignOut ) ->
             ( SignedOut SignIn.init, deleteSession )
@@ -140,20 +148,8 @@ view model =
         SignedOut _ ->
             SignIn.viewForm |> Html.map SignInMsg
 
-        SignedIn _ SelectingFile ->
-            uploadForm
-
-        SignedIn _ (UploadingFile file) ->
-            Html.text ("Uploading “" ++ File.name file ++ "”…")
-
-        SignedIn _ (UploadFinished result) ->
-            case result of
-                Err e ->
-                    Html.text ("Error: " ++ Debug.toString e)
-
-                Ok { location } ->
-                    Html.a [ href location ]
-                        [ Html.text "Uploaded!" ]
+        SignedIn _ jobs ->
+            div [] (List.map Upload.viewJob (Upload.allJobs jobs) ++ [ uploadForm ])
 
 
 uploadForm : Html Msg
@@ -161,7 +157,7 @@ uploadForm =
     div []
         [ input
             [ type_ "file"
-            , multiple False
+            , multiple True
             , on "change" (D.map GotFiles filesDecoder)
             ]
             []
