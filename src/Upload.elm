@@ -45,8 +45,8 @@ allJobs model =
             model.finishedJobs ++ model.pendingJobs
 
 
-addJobs : Model -> List File -> Model
-addJobs model files =
+addJobs : List File -> Model -> Model
+addJobs files model =
     let
         newJobs =
             files |> List.map (\f -> { file = f, status = Pending })
@@ -57,8 +57,8 @@ addJobs model files =
     { model | pendingJobs = pendingJobs }
 
 
-finishCurrentJob : Model -> Result Http.Error S3.Response -> Model
-finishCurrentJob model result =
+finishCurrentJob : Result Http.Error S3.Response -> Model -> Model
+finishCurrentJob result model =
     case model.currentJob of
         Just currentJob ->
             let

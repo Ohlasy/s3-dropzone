@@ -67,6 +67,7 @@ type Msg
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case ( model, msg ) of
+        -- Handle sign-in message, possibly switching to upload
         ( SignedOut lmodel, SignInMsg lmsg ) ->
             case SignIn.update lmsg lmodel of
                 ( updatedModel, cmd, Nothing ) ->
@@ -75,35 +76,37 @@ update msg model =
                 ( _, cmd, Just session ) ->
                     ( SignedIn session Upload.init, Cmd.map SignInMsg cmd )
 
+        -- Add new uploads to the queue
         ( SignedIn session jobs, GotFiles files ) ->
-            let
-                ( updatedJobs, startedJob ) =
-                    Upload.addJobs jobs files |> Upload.startNextJob
-            in
-            case startedJob of
-                Just job ->
-                    ( SignedIn session updatedJobs, uploadFile session job.file )
+            updateJobQueue session jobs (Upload.addJobs files)
 
-                Nothing ->
-                    ( SignedIn session updatedJobs, Cmd.none )
-
+        -- Finish current upload
         ( SignedIn session jobs, ReceiveS3Response result ) ->
-            let
-                ( updatedJobs, nextJob ) =
-                    Upload.finishCurrentJob jobs result |> Upload.startNextJob
-            in
-            case nextJob of
-                Just job ->
-                    ( SignedIn session updatedJobs, uploadFile session job.file )
+            updateJobQueue session jobs (Upload.finishCurrentJob result)
 
-                Nothing ->
-                    ( SignedIn session updatedJobs, Cmd.none )
-
+        -- Sign Out
         ( SignedIn _ _, SignOut ) ->
             ( SignedOut SignIn.init, deleteSession )
 
         default ->
             ( model, Cmd.none )
+
+
+updateJobQueue : Session -> Upload.Model -> (Upload.Model -> Upload.Model) -> ( Model, Cmd Msg )
+updateJobQueue session queue action =
+    let
+        ( updatedQueue, nextJob ) =
+            queue |> action |> Upload.startNextJob
+
+        updatedModel =
+            SignedIn session updatedQueue
+    in
+    case nextJob of
+        Just job ->
+            ( updatedModel, uploadFile session job.file )
+
+        Nothing ->
+            ( updatedModel, Cmd.none )
 
 
 s3Config : Session -> S3.Config
