@@ -115,14 +115,18 @@ updateJobQueue session queue action =
 
 s3Config : Session -> S3.Config
 s3Config session =
+    let
+        awsHost =
+            String.join "." [ "s3", session.region, "amazonaws.com" ]
+    in
     S3.config
         { accessKey = session.accessKey
         , secretKey = session.secretKey
         , bucket = session.bucket
-        , region = "eu-central-1"
+        , region = session.region
         }
-        |> S3.withAwsS3Host "s3.eu-central-1.amazonaws.com"
-        |> S3.withPrefix "test"
+        |> S3.withAwsS3Host awsHost
+        |> S3.withPrefix session.folderPrefix
 
 
 uploadFile : Session -> File -> Cmd Msg

@@ -14,7 +14,13 @@ suite =
             \x y z ->
                 let
                     session =
-                        { accessKey = x, secretKey = y, bucket = z }
+                        { accessKey = x
+                        , secretKey = y
+                        , bucket = z
+                        , region = x
+                        , publicUrlPrefix = y
+                        , folderPrefix = z
+                        }
                 in
                 session
                     |> encodeSession

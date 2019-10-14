@@ -44,10 +44,32 @@ update msg model =
             ( FillingForm { form | bucket = s }, Cmd.none, Nothing )
 
         ( FillingForm form, SubmitForm ) ->
-            ( SignedIn form, form |> encodeSession |> saveSession, Just form )
+            let
+                session =
+                    makeSession form
+
+                saveCmd =
+                    session |> encodeSession |> saveSession
+            in
+            ( SignedIn session, saveCmd, Just session )
 
         default ->
             ( model, Cmd.none, Nothing )
+
+
+makeSession : Form -> Session
+makeSession form =
+    { accessKey = form.accessKey
+    , secretKey = form.secretKey
+    , bucket = form.bucket
+    , region = "eu-central-1"
+    , publicUrlPrefix = ""
+    , folderPrefix = ""
+    }
+
+
+
+-- VIEW
 
 
 viewForm : Html Msg
