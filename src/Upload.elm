@@ -13,100 +13,83 @@ import S3
 import Session exposing (Session)
 
 
-type JobStatus
-    = Pending
+
+-- MODEL
+
+
+type Status
+    = Waiting
     | Running
     | Finished (Result Http.Error S3.Response)
 
 
-type alias Job =
-    { file : File
-    , status : JobStatus
-    }
-
-
 type alias Model =
-    { finishedJobs : List Job
-    , currentJob : Maybe Job
-    , pendingJobs : List Job
+    { file : File
+    , session : Session
+    , status : Status
     }
 
 
-init : Model
-init =
-    { finishedJobs = []
-    , currentJob = Nothing
-    , pendingJobs = []
-    }
+init : Session -> File -> Model
+init session file =
+    Model file session Waiting
 
 
-allJobs : Model -> List Job
-allJobs model =
-    case model.currentJob of
-        Just job ->
-            model.finishedJobs ++ [ job ] ++ model.pendingJobs
 
-        Nothing ->
-            model.finishedJobs ++ model.pendingJobs
+-- UPDATE
 
 
-addJobs : List File -> Model -> Model
-addJobs files model =
+type Msg
+    = Start
+    | ReceiveS3Response (Result Http.Error S3.Response)
+
+
+update : Msg -> Model -> ( Model, Cmd Msg )
+update msg model =
+    case msg of
+        Start ->
+            ( { model | status = Running }, uploadFile model.session model.file )
+
+        ReceiveS3Response response ->
+            ( { model | status = Finished response }, Cmd.none )
+
+
+uploadFile : Session -> File -> Cmd Msg
+uploadFile session file =
     let
-        newJobs =
-            files |> List.map (\f -> { file = f, status = Pending })
+        metadata =
+            { fileName = File.name file
+            , contentType = File.mime file
+            , file = file
+            }
 
-        pendingJobs =
-            model.pendingJobs ++ newJobs
+        config =
+            s3Config session
     in
-    { model | pendingJobs = pendingJobs }
+    S3.uploadFile metadata config ReceiveS3Response
 
 
-finishCurrentJob : Result Http.Error S3.Response -> Model -> Model
-finishCurrentJob result model =
-    case model.currentJob of
-        Just currentJob ->
-            let
-                finishedJob =
-                    { currentJob | status = Finished result }
-
-                finishedJobs =
-                    model.finishedJobs ++ [ finishedJob ]
-            in
-            { model | currentJob = Nothing, finishedJobs = finishedJobs }
-
-        Nothing ->
-            model
-
-
-startNextJob : Model -> ( Model, Maybe Job )
-startNextJob model =
-    case model.currentJob of
-        -- No job currently running, start next if there are pending jobs
-        Nothing ->
-            case model.pendingJobs of
-                -- Any pending jobs left?
-                next :: remaining ->
-                    let
-                        started =
-                            { next | status = Running }
-                    in
-                    ( { model | currentJob = Just started, pendingJobs = remaining }, Just started )
-
-                -- No, nothing left to do
-                default ->
-                    ( model, Nothing )
-
-        -- Some job already running, no change
-        Just _ ->
-            ( model, Nothing )
+s3Config : Session -> S3.Config
+s3Config session =
+    let
+        awsHost =
+            String.join "." [ "s3", session.region, "amazonaws.com" ]
+    in
+    S3.config
+        { accessKey = session.accessKey
+        , secretKey = session.secretKey
+        , bucket = session.bucket
+        , region = session.region
+        }
+        |> S3.withAwsS3Host awsHost
+        |> S3.withPrefix session.folderPrefix
 
 
 
 -- VIEW
 
 
-viewJob : Job -> Html a
+viewJob : Model -> Html a
 viewJob job =
     layoutGridCell [ LayoutGrid.span2Desktop ]
         [ card cardConfig
@@ -123,7 +106,7 @@ viewJob job =
         ]
 
 
-coverImageForJob : Job -> String
+coverImageForJob : Model -> String
 coverImageForJob job =
     case job.status of
         Finished (Ok { location }) ->
@@ -133,11 +116,11 @@ coverImageForJob job =
             "placeholder.jpg"
 
 
-viewStatus : JobStatus -> Html a
+viewStatus : Status -> Html a
 viewStatus s =
     case s of
-        Pending ->
-            Html.text "Waiting."
+        Waiting ->
+            Html.text "Waiting…"
 
         Running ->
             Html.text "Uploading…"

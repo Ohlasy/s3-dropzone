@@ -5,13 +5,12 @@ import File exposing (File)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
-import Http
 import Json.Decode as D
 import Material.IconButton exposing (iconButton, iconButtonConfig)
 import Material.LayoutGrid as LayoutGrid exposing (layoutGrid, layoutGridCell, layoutGridInner)
 import Material.TopAppBar as TopAppBar exposing (topAppBar, topAppBarConfig)
 import Material.Typography as Typography
-import S3
+import Queue exposing (Queue)
 import Session exposing (Session, decodeSession, deleteSession)
 import SignIn
 import Upload
@@ -36,7 +35,7 @@ main =
 
 type Model
     = SignedOut SignIn.Model
-    | SignedIn Session Upload.Model
+    | SignedIn Session Queue
 
 
 type alias Flags =
@@ -54,7 +53,7 @@ init flags =
             ( SignedOut SignIn.init, Cmd.none )
 
         Ok session ->
-            ( SignedIn session Upload.init, Cmd.none )
+            ( SignedIn session Queue.init, Cmd.none )
 
 
 
@@ -63,8 +62,8 @@ init flags =
 
 type Msg
     = SignInMsg SignIn.Msg
+    | UpdateUpload Upload.Msg
     | GotFiles (List File)
-    | ReceiveS3Response (Result Http.Error S3.Response)
     | SignOut
 
 
@@ -78,15 +77,28 @@ update msg model =
                     ( SignedOut updatedModel, Cmd.map SignInMsg cmd )
 
                 ( _, cmd, Just session ) ->
-                    ( SignedIn session Upload.init, Cmd.map SignInMsg cmd )
+                    ( SignedIn session Queue.init, Cmd.map SignInMsg cmd )
 
         -- Add new uploads to the queue
-        ( SignedIn session jobs, GotFiles files ) ->
-            updateJobQueue session jobs (Upload.addJobs files)
+        ( SignedIn session queue, GotFiles files ) ->
+            Queue.addJobs queue session files
+                |> Queue.update
+                |> Tuple.mapFirst (SignedIn session)
+                |> Tuple.mapSecond (Cmd.map UpdateUpload)
 
-        -- Finish current upload
-        ( SignedIn session jobs, ReceiveS3Response result ) ->
-            updateJobQueue session jobs (Upload.finishCurrentJob result)
+        -- Update queue
+        ( SignedIn session queue, UpdateUpload umsg ) ->
+            let
+                ( queue1, cmd1 ) =
+                    Queue.updateCurrentJob queue umsg
+
+                ( queue2, cmd2 ) =
+                    Queue.update queue1
+
+                cmd =
+                    Cmd.batch [ cmd1, cmd2 ]
+            in
+            ( SignedIn session queue2, cmd |> Cmd.map UpdateUpload )
 
         -- Sign Out
         ( SignedIn _ _, SignOut ) ->
@@ -94,54 +106,6 @@ update msg model =
 
         default ->
             ( model, Cmd.none )
-
-
-updateJobQueue : Session -> Upload.Model -> (Upload.Model -> Upload.Model) -> ( Model, Cmd Msg )
-updateJobQueue session queue action =
-    let
-        ( updatedQueue, nextJob ) =
-            queue |> action |> Upload.startNextJob
-
-        updatedModel =
-            SignedIn session updatedQueue
-    in
-    case nextJob of
-        Just job ->
-            ( updatedModel, uploadFile session job.file )
-
-        Nothing ->
-            ( updatedModel, Cmd.none )
-
-
-s3Config : Session -> S3.Config
-s3Config session =
-    let
-        awsHost =
-            String.join "." [ "s3", session.region, "amazonaws.com" ]
-    in
-    S3.config
-        { accessKey = session.accessKey
-        , secretKey = session.secretKey
-        , bucket = session.bucket
-        , region = session.region
-        }
-        |> S3.withAwsS3Host awsHost
-        |> S3.withPrefix session.folderPrefix
-
-
-uploadFile : Session -> File -> Cmd Msg
-uploadFile session file =
-    let
-        metadata =
-            { fileName = File.name file
-            , contentType = File.mime file
-            , file = file
-            }
-
-        config =
-            s3Config session
-    in
-    S3.uploadFile metadata config ReceiveS3Response
 
 
 filesDecoder : D.Decoder (List File)
@@ -183,7 +147,7 @@ viewContent model =
         SignedIn _ jobs ->
             div []
                 [ layoutGrid []
-                    [ layoutGridInner [] (List.map Upload.viewJob (Upload.allJobs jobs))
+                    [ layoutGridInner [] (List.map Upload.viewJob (Queue.allJobs jobs))
                     ]
                 , uploadForm
                 ]

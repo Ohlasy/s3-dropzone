@@ -14,7 +14,8 @@
             "elm/http": "2.0.0",
             "elm/json": "1.1.3",
             "elm-explorations/test": "1.2.2",
-            "jaredramirez/elm-s3": "1.0.3"
+            "jaredramirez/elm-s3": "1.0.3",
+            "wernerdegroot/listzipper": "4.0.0"
         },
         "indirect": {
             "elm/bytes": "1.0.8",
