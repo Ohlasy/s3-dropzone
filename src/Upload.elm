@@ -1,5 +1,6 @@
 module Upload exposing (..)
 
+import Bytes exposing (Bytes)
 import File exposing (File)
 import Html exposing (Html, text)
 import Html.Attributes exposing (href, style)
@@ -10,7 +11,9 @@ import Material.LayoutGrid as LayoutGrid exposing (layoutGridCell)
 import Material.TextField exposing (textField, textFieldConfig)
 import Material.Typography as Typography
 import S3
+import SHA256
 import Session exposing (Session)
+import Task
 
 
 
@@ -41,6 +44,7 @@ init session file =
 
 type Msg
     = Start
+    | ReceiveBytes Bytes
     | ReceiveS3Response (Result Http.Error S3.Response)
 
 
@@ -48,17 +52,35 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Start ->
-            ( { model | status = Running }, uploadFile model.session model.file )
+            ( { model | status = Running }, readFile model.file )
+
+        ReceiveBytes bytes ->
+            let
+                originalExtension =
+                    File.name model.file
+                        |> splitExtension
+                        |> Tuple.second
+
+                hash =
+                    hashBytes bytes
+
+                fileName =
+                    hash ++ originalExtension
+
+                cmd =
+                    uploadFile model.session model.file fileName
+            in
+            ( model, cmd )
 
         ReceiveS3Response response ->
             ( { model | status = Finished response }, Cmd.none )
 
 
-uploadFile : Session -> File -> Cmd Msg
-uploadFile session file =
+uploadFile : Session -> File -> String -> Cmd Msg
+uploadFile session file name =
     let
         metadata =
-            { fileName = File.name file
+            { fileName = name
             , contentType = File.mime file
             , file = file
             }
@@ -83,6 +105,39 @@ s3Config session =
         }
         |> S3.withAwsS3Host awsHost
         |> S3.withPrefix session.folderPrefix
+
+
+
+-- FILE UTILS
+
+
+readFile : File -> Cmd Msg
+readFile file =
+    Task.perform ReceiveBytes (File.toBytes file)
+
+
+hashBytes : Bytes -> String
+hashBytes =
+    SHA256.fromBytes
+        >> SHA256.toHex
+        >> String.left 8
+
+
+splitExtension : String -> ( String, String )
+splitExtension path =
+    case String.reverse path |> String.split extSeparator of
+        [] ->
+            ( "", "" )
+
+        [ a ] ->
+            ( String.reverse a, "" )
+
+        x :: xs ->
+            ( String.reverse <| String.join extSeparator xs, extSeparator ++ String.reverse x )
+
+
+extSeparator =
+    "."
 
 
 
