@@ -28,6 +28,7 @@ type Status
 
 type alias Model =
     { file : File
+    , targetFileName : Maybe String
     , session : Session
     , status : Status
     }
@@ -35,7 +36,11 @@ type alias Model =
 
 init : Session -> File -> Model
 init session file =
-    Model file session Waiting
+    { file = file
+    , targetFileName = Nothing
+    , session = session
+    , status = Waiting
+    }
 
 
 
@@ -67,28 +72,33 @@ update msg model =
                 fileName =
                     hash ++ originalExtension
 
-                cmd =
-                    uploadFile model.session model.file fileName
+                newModel =
+                    { model | targetFileName = Just fileName }
             in
-            ( model, cmd )
+            ( newModel, uploadFile newModel )
 
         ReceiveS3Response response ->
             ( { model | status = Finished response }, Cmd.none )
 
 
-uploadFile : Session -> File -> String -> Cmd Msg
-uploadFile session file name =
+uploadFile : Model -> Cmd Msg
+uploadFile model =
     let
         metadata =
-            { fileName = name
-            , contentType = File.mime file
-            , file = file
+            { fileName = uploadFileName model
+            , contentType = File.mime model.file
+            , file = model.file
             }
 
         config =
-            s3Config session
+            s3Config model.session
     in
     S3.uploadFile metadata config ReceiveS3Response
+
+
+uploadFileName : Model -> String
+uploadFileName model =
+    Maybe.withDefault (File.name model.file) model.targetFileName
 
 
 s3Config : Session -> S3.Config
@@ -153,7 +163,7 @@ viewJob job =
                 , cardBlock <|
                     Html.div [ style "padding" "10px" ]
                         [ Html.h2 [] [ text (File.name job.file) ]
-                        , Html.p [] [ viewStatus job.status ]
+                        , Html.p [] [ viewStatus job ]
                         ]
                 ]
             , actions = Nothing
@@ -171,16 +181,20 @@ coverImageForJob job =
             "placeholder.jpg"
 
 
-viewStatus : Status -> Html a
-viewStatus s =
-    case s of
+viewStatus : Model -> Html a
+viewStatus model =
+    case model.status of
         Waiting ->
             Html.text "Waiting…"
 
         Running ->
             Html.text "Uploading…"
 
-        Finished (Ok { location }) ->
+        Finished (Ok _) ->
+            let
+                location =
+                    Session.targetUrlForFile (uploadFileName model) model.session
+            in
             Html.a [ href location ] [ Html.text "Uploaded" ]
 
         Finished (Err e) ->

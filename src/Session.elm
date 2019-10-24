@@ -17,6 +17,21 @@ type alias Session =
 port saveSession : E.Value -> Cmd msg
 
 
+init : Session
+init =
+    { accessKey = ""
+    , secretKey = ""
+    , bucket = ""
+    , region = ""
+    , publicUrlPrefix = ""
+    , folderPrefix = ""
+    }
+
+
+
+-- Persistence
+
+
 deleteSession : Cmd msg
 deleteSession =
     saveSession E.null
@@ -43,3 +58,58 @@ decodeSession =
         (field "region" string)
         (field "publicUrlPrefix" string)
         (field "folderPrefix" string)
+
+
+
+-- Helpers
+
+
+targetUrlForFile : String -> Session -> String
+targetUrlForFile fileName session =
+    let
+        awsHost =
+            "https://" ++ session.bucket ++ ".s3." ++ session.region ++ ".amazonaws.com"
+
+        path =
+            case session.folderPrefix of
+                "" ->
+                    "/" ++ fileName
+
+                "/" ->
+                    "/" ++ fileName
+
+                default ->
+                    "/" ++ normalize session.folderPrefix ++ "/" ++ fileName
+
+        host =
+            case session.publicUrlPrefix of
+                "" ->
+                    awsHost
+
+                customHost ->
+                    stripTrailingSlash customHost
+    in
+    host ++ path
+
+
+normalize : String -> String
+normalize =
+    stripLeadingSlash >> stripTrailingSlash
+
+
+stripTrailingSlash : String -> String
+stripTrailingSlash str =
+    if String.endsWith "/" str then
+        String.dropRight 1 str
+
+    else
+        str
+
+
+stripLeadingSlash : String -> String
+stripLeadingSlash str =
+    if String.startsWith "/" str then
+        String.dropLeft 1 str
+
+    else
+        str
