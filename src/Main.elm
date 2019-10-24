@@ -120,18 +120,30 @@ filesDecoder =
 view : Model -> Html Msg
 view model =
     Html.div [ Typography.typography ]
-        [ viewTopAppBar
+        [ viewTopAppBar model
         , Html.div [ TopAppBar.fixedAdjust ]
             [ viewContent model ]
         ]
 
 
-viewTopAppBar : Html Msg
-viewTopAppBar =
+viewTopAppBar : Model -> Html Msg
+viewTopAppBar model =
+    let
+        appName =
+            "S3 Dropzone"
+
+        heading =
+            case model of
+                SignedOut _ ->
+                    appName
+
+                SignedIn session _ ->
+                    appName ++ " | " ++ session.bucket
+    in
     topAppBar topAppBarConfig
         [ TopAppBar.row []
             [ TopAppBar.section [ TopAppBar.alignStart ]
-                [ Html.span [ TopAppBar.title ] [ text "S3 Dropzone" ] ]
+                [ Html.span [ TopAppBar.title ] [ text heading ] ]
             , TopAppBar.section [ TopAppBar.alignEnd ]
                 [ iconButton { iconButtonConfig | onClick = Just SignOut, label = Just "Sign Out" } "exit_to_app" ]
             ]
