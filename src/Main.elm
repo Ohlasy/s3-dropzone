@@ -1,4 +1,4 @@
-module Main exposing (Model, Msg, filesDecoder, init, main, subscriptions, update, view)
+module Main exposing (Model, Msg, filesDecoder, init, main, update, view)
 
 import Browser
 import File exposing (File)
@@ -26,7 +26,7 @@ main =
         { init = init
         , view = view
         , update = update
-        , subscriptions = subscriptions
+        , subscriptions = \_ -> Sub.none
         }
 
 
@@ -176,12 +176,3 @@ uploadForm =
             ]
             []
         ]
-
-
-
--- SUBSCRIPTIONS
-
-
-subscriptions : Model -> Sub Msg
-subscriptions _ =
-    Sub.none
