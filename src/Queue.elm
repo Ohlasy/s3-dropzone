@@ -1,4 +1,4 @@
-module Queue exposing (..)
+module Queue exposing (Queue, addJobs, allJobs, init, update, updateCurrentJob)
 
 {-| This is all very wrong. We would like the queue to be a list of jobs in various states,
 and support automatically starting new uploads while a previous one finishes, up to a given
@@ -8,7 +8,7 @@ concurrency.
 import File exposing (File)
 import List.Zipper as LZ
 import Session exposing (Session)
-import Upload exposing (Status)
+import Upload
 
 
 

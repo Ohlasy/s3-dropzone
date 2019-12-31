@@ -1,4 +1,4 @@
-port module Session exposing (..)
+port module Session exposing (Session, decodeSession, deleteSession, encodeSession, init, saveSession, targetUrlForFile)
 
 import Json.Decode exposing (Decoder, field, map6, string)
 import Json.Encode as E
@@ -78,7 +78,7 @@ targetUrlForFile fileName session =
                 "/" ->
                     "/" ++ fileName
 
-                default ->
+                _ ->
                     "/" ++ normalize session.folderPrefix ++ "/" ++ fileName
 
         host =

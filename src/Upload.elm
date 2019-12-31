@@ -1,15 +1,12 @@
-module Upload exposing (..)
+module Upload exposing (Model, Msg(..), Status(..), init, update, viewJob)
 
 import Bytes exposing (Bytes)
 import File exposing (File)
 import Html exposing (Html, text)
 import Html.Attributes exposing (href, style)
 import Http
-import Material.Card exposing (..)
-import Material.Icon exposing (icon, iconConfig)
+import Material.Card as Card
 import Material.LayoutGrid as LayoutGrid exposing (layoutGridCell)
-import Material.TextField exposing (textField, textFieldConfig)
-import Material.Typography as Typography
 import S3
 import SHA256
 import Session exposing (Session)
@@ -146,6 +143,7 @@ splitExtension path =
             ( String.reverse <| String.join extSeparator xs, extSeparator ++ String.reverse x )
 
 
+extSeparator : String
 extSeparator =
     "."
 
@@ -157,10 +155,10 @@ extSeparator =
 viewJob : Model -> Html a
 viewJob job =
     layoutGridCell [ LayoutGrid.span2Desktop ]
-        [ card cardConfig
+        [ Card.card Card.cardConfig
             { blocks =
-                [ cardMedia { cardMediaConfig | aspect = Just SixteenToNine } (coverImageForJob job)
-                , cardBlock <|
+                [ Card.cardMedia wideAspectCardConfig (coverImageForJob job)
+                , Card.cardBlock <|
                     Html.div [ style "padding" "10px" ]
                         [ Html.h2 [] [ text (File.name job.file) ]
                         , Html.p [] [ viewStatus job ]
@@ -171,13 +169,22 @@ viewJob job =
         ]
 
 
+wideAspectCardConfig : Card.CardMediaConfig a
+wideAspectCardConfig =
+    let
+        defaultConfig =
+            Card.cardMediaConfig
+    in
+    { defaultConfig | aspect = Just Card.SixteenToNine }
+
+
 coverImageForJob : Model -> String
 coverImageForJob job =
     case job.status of
         Finished (Ok { location }) ->
             location
 
-        default ->
+        _ ->
             "placeholder.jpg"
 
 

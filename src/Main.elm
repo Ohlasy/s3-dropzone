@@ -2,12 +2,12 @@ module Main exposing (Model, Msg, filesDecoder, init, main, subscriptions, updat
 
 import Browser
 import File exposing (File)
-import Html exposing (..)
-import Html.Attributes exposing (..)
-import Html.Events exposing (..)
-import Json.Decode as D
+import Html exposing (Html)
+import Html.Attributes as Atts
+import Html.Events as Events
+import Json.Decode as JSON
 import Material.IconButton exposing (iconButton, iconButtonConfig)
-import Material.LayoutGrid as LayoutGrid exposing (layoutGrid, layoutGridCell, layoutGridInner)
+import Material.LayoutGrid exposing (layoutGrid, layoutGridInner)
 import Material.TopAppBar as TopAppBar exposing (topAppBar, topAppBarConfig)
 import Material.Typography as Typography
 import Queue exposing (Queue)
@@ -20,6 +20,7 @@ import Upload
 -- MAIN
 
 
+main : Program Flags Model Msg
 main =
     Browser.element
         { init = init
@@ -39,16 +40,16 @@ type Model
 
 
 type alias Flags =
-    D.Value
+    JSON.Value
 
 
 init : Flags -> ( Model, Cmd Msg )
 init flags =
     let
         decodeFlags =
-            D.field "session" decodeSession
+            JSON.field "session" decodeSession
     in
-    case D.decodeValue decodeFlags flags of
+    case JSON.decodeValue decodeFlags flags of
         Err _ ->
             ( SignedOut SignIn.init, Cmd.none )
 
@@ -104,13 +105,13 @@ update msg model =
         ( SignedIn _ _, SignOut ) ->
             ( SignedOut SignIn.init, deleteSession )
 
-        default ->
+        _ ->
             ( model, Cmd.none )
 
 
-filesDecoder : D.Decoder (List File)
+filesDecoder : JSON.Decoder (List File)
 filesDecoder =
-    D.at [ "target", "files" ] (D.list File.decoder)
+    JSON.at [ "target", "files" ] (JSON.list File.decoder)
 
 
 
@@ -143,7 +144,7 @@ viewTopAppBar model =
     topAppBar topAppBarConfig
         [ TopAppBar.row []
             [ TopAppBar.section [ TopAppBar.alignStart ]
-                [ Html.span [ TopAppBar.title ] [ text heading ] ]
+                [ Html.span [ TopAppBar.title ] [ Html.text heading ] ]
             , TopAppBar.section [ TopAppBar.alignEnd ]
                 [ iconButton { iconButtonConfig | onClick = Just SignOut, label = Just "Sign Out" } "exit_to_app" ]
             ]
@@ -157,7 +158,7 @@ viewContent model =
             SignIn.viewForm |> Html.map SignInMsg
 
         SignedIn _ jobs ->
-            div []
+            Html.div []
                 [ layoutGrid []
                     [ layoutGridInner [] (List.map Upload.viewJob (Queue.allJobs jobs))
                     ]
@@ -167,11 +168,11 @@ viewContent model =
 
 uploadForm : Html Msg
 uploadForm =
-    div []
-        [ input
-            [ type_ "file"
-            , multiple True
-            , on "change" (D.map GotFiles filesDecoder)
+    Html.div []
+        [ Html.input
+            [ Atts.type_ "file"
+            , Atts.multiple True
+            , Events.on "change" (JSON.map GotFiles filesDecoder)
             ]
             []
         ]
@@ -182,5 +183,5 @@ uploadForm =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions model =
+subscriptions _ =
     Sub.none

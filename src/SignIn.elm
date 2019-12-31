@@ -53,7 +53,7 @@ update msg model =
             in
             ( SignedIn session, saveCmd, Just session )
 
-        default ->
+        _ ->
             ( model, Cmd.none, Nothing )
 
 
