@@ -1,10 +1,10 @@
 module Suite exposing (suite)
 
-import Expect exposing (Expectation)
-import Fuzz exposing (Fuzzer, string)
+import Expect
+import Fuzz exposing (string)
 import Json.Decode
-import Session exposing (Session, decodeSession, encodeSession, targetUrlForFile)
-import Test exposing (..)
+import Session exposing (decodeSession, encodeSession, targetUrlForFile)
+import Test exposing (Test, describe, fuzz3, test)
 
 
 suite : Test
