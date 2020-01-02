@@ -1,6 +1,6 @@
 port module Session exposing (Session, decodeSession, deleteSession, encodeSession, init, saveSession, targetUrlForFile)
 
-import Json.Decode exposing (Decoder, field, map6, string)
+import Json.Decode as D
 import Json.Encode as E
 
 
@@ -49,15 +49,15 @@ encodeSession session =
         ]
 
 
-decodeSession : Decoder Session
+decodeSession : D.Decoder Session
 decodeSession =
-    map6 Session
-        (field "accessKey" string)
-        (field "secretKey" string)
-        (field "bucket" string)
-        (field "region" string)
-        (field "publicUrlPrefix" string)
-        (field "folderPrefix" string)
+    D.map6 Session
+        (D.field "accessKey" D.string)
+        (D.field "secretKey" D.string)
+        (D.field "bucket" D.string)
+        (D.field "region" D.string)
+        (D.field "publicUrlPrefix" D.string)
+        (D.field "folderPrefix" D.string)
 
 
 
