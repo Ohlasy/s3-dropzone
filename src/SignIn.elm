@@ -11,6 +11,8 @@ type alias Form =
     { accessKey : String
     , secretKey : String
     , bucket : String
+    , folderPrefix : String
+    , publicUrlPrefix : String
     }
 
 
@@ -23,12 +25,20 @@ type Msg
     = UpdateAccessKey String
     | UpdateSecretKey String
     | UpdateBucket String
+    | UpdateFolderPrefix String
+    | UpdatePublicUrlPrefix String
     | SubmitForm
 
 
 init : Model
 init =
-    FillingForm { accessKey = "", secretKey = "", bucket = "" }
+    FillingForm
+        { accessKey = ""
+        , secretKey = ""
+        , bucket = ""
+        , folderPrefix = ""
+        , publicUrlPrefix = ""
+        }
 
 
 update : Msg -> Model -> ( Model, Cmd Msg, Maybe Session )
@@ -42,6 +52,12 @@ update msg model =
 
         ( FillingForm form, UpdateBucket s ) ->
             ( FillingForm { form | bucket = s }, Cmd.none, Nothing )
+
+        ( FillingForm form, UpdateFolderPrefix s ) ->
+            ( FillingForm { form | folderPrefix = s }, Cmd.none, Nothing )
+
+        ( FillingForm form, UpdatePublicUrlPrefix s ) ->
+            ( FillingForm { form | publicUrlPrefix = s }, Cmd.none, Nothing )
 
         ( FillingForm form, SubmitForm ) ->
             let
@@ -63,8 +79,8 @@ makeSession form =
     , secretKey = form.secretKey
     , bucket = form.bucket
     , region = "eu-central-1"
-    , publicUrlPrefix = ""
-    , folderPrefix = ""
+    , publicUrlPrefix = form.publicUrlPrefix
+    , folderPrefix = form.folderPrefix
     }
 
 
@@ -102,6 +118,20 @@ viewForm =
                     , fullwidth = True
                     , required = True
                     , type_ = "password"
+                }
+            , textField
+                { textFieldConfig
+                    | placeholder = Just "Folder Prefix"
+                    , onInput = Just UpdateFolderPrefix
+                    , fullwidth = True
+                    , required = False
+                }
+            , textField
+                { textFieldConfig
+                    | placeholder = Just "Public URL Prefix"
+                    , onInput = Just UpdatePublicUrlPrefix
+                    , fullwidth = True
+                    , required = False
                 }
             ]
         , actions =
