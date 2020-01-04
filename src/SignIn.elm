@@ -1,6 +1,7 @@
 module SignIn exposing (Model, Msg, getDefaultConfig, init, update, viewForm)
 
 import Html exposing (Html)
+import Html.Attributes
 import Http
 import Json.Decode as JSON
 import Material.Button exposing (buttonConfig, textButton)
@@ -135,6 +136,10 @@ getDefaultConfig =
 
 viewForm : Model -> Html Msg
 viewForm form =
+    let
+        fullWidth =
+            Html.Attributes.style "width" "100%"
+    in
     dialog
         { dialogConfig
             | open = True
@@ -144,42 +149,43 @@ viewForm form =
         , content =
             [ textField
                 { textFieldConfig
-                    | placeholder = Just "Bucket Name"
+                    | label = Just "Bucket Name"
                     , onInput = Just UpdateBucket
-                    , fullwidth = True
                     , required = True
-                    , value = Just form.bucket
+                    , value = form.bucket
+                    , additionalAttributes = [ fullWidth ]
                 }
+            , Html.br [] []
             , textField
                 { textFieldConfig
-                    | onInput = Just UpdateAccessKey
-                    , fullwidth = True
-                    , placeholder = Just "Access Key"
+                    | label = Just "Access Key"
+                    , onInput = Just UpdateAccessKey
                     , required = True
+                    , additionalAttributes = [ fullWidth ]
                 }
+            , Html.br [] []
             , textField
                 { textFieldConfig
-                    | placeholder = Just "Secret Key"
+                    | label = Just "Secret Key"
                     , onInput = Just UpdateSecretKey
-                    , fullwidth = True
                     , required = True
                     , type_ = "password"
+                    , additionalAttributes = [ fullWidth ]
                 }
+            , Html.br [] []
             , textField
                 { textFieldConfig
-                    | placeholder = Just "Folder Prefix"
+                    | label = Just "Folder Prefix"
                     , onInput = Just UpdateFolderPrefix
-                    , fullwidth = True
                     , required = False
-                    , value = Just form.folderPrefix
+                    , value = form.folderPrefix
                 }
             , textField
                 { textFieldConfig
-                    | placeholder = Just "Public URL Prefix"
+                    | label = Just "Public URL Prefix"
                     , onInput = Just UpdatePublicUrlPrefix
-                    , fullwidth = True
                     , required = False
-                    , value = Just form.publicUrlPrefix
+                    , value = form.publicUrlPrefix
                 }
             ]
         , actions =
