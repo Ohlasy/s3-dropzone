@@ -1,13 +1,15 @@
-module SignIn exposing (Model, Msg, init, update, viewForm)
+module SignIn exposing (Model, Msg, getDefaultConfig, init, update, viewForm)
 
 import Html exposing (Html)
+import Http
+import Json.Decode as JSON
 import Material.Button exposing (buttonConfig, textButton)
 import Material.Dialog exposing (dialog, dialogConfig)
 import Material.TextField exposing (textField, textFieldConfig)
 import Session exposing (Session, encodeSession, saveSession)
 
 
-type alias Form =
+type alias Model =
     { accessKey : String
     , secretKey : String
     , bucket : String
@@ -16,13 +18,9 @@ type alias Form =
     }
 
 
-type Model
-    = FillingForm Form
-    | SignedIn Session
-
-
 type Msg
-    = UpdateAccessKey String
+    = ReceiveDefaultConfig (Result Http.Error DefaultConfig)
+    | UpdateAccessKey String
     | UpdateSecretKey String
     | UpdateBucket String
     | UpdateFolderPrefix String
@@ -32,34 +30,50 @@ type Msg
 
 init : Model
 init =
-    FillingForm
-        { accessKey = ""
-        , secretKey = ""
-        , bucket = ""
-        , folderPrefix = ""
-        , publicUrlPrefix = ""
-        }
+    { accessKey = ""
+    , secretKey = ""
+    , bucket = ""
+    , folderPrefix = ""
+    , publicUrlPrefix = ""
+    }
 
 
 update : Msg -> Model -> ( Model, Cmd Msg, Maybe Session )
-update msg model =
-    case ( model, msg ) of
-        ( FillingForm form, UpdateAccessKey s ) ->
-            ( FillingForm { form | accessKey = s }, Cmd.none, Nothing )
+update msg form =
+    case msg of
+        ReceiveDefaultConfig result ->
+            let
+                noDefaultConfig =
+                    DefaultConfig Nothing Nothing Nothing
 
-        ( FillingForm form, UpdateSecretKey s ) ->
-            ( FillingForm { form | secretKey = s }, Cmd.none, Nothing )
+                config =
+                    Result.withDefault noDefaultConfig result
 
-        ( FillingForm form, UpdateBucket s ) ->
-            ( FillingForm { form | bucket = s }, Cmd.none, Nothing )
+                prefilledForm =
+                    { form
+                        | bucket = Maybe.withDefault form.bucket config.bucket
+                        , folderPrefix = Maybe.withDefault form.folderPrefix config.folderPrefix
+                        , publicUrlPrefix = Maybe.withDefault form.publicUrlPrefix config.publicUrlPrefix
+                    }
+            in
+            ( prefilledForm, Cmd.none, Nothing )
 
-        ( FillingForm form, UpdateFolderPrefix s ) ->
-            ( FillingForm { form | folderPrefix = s }, Cmd.none, Nothing )
+        UpdateAccessKey s ->
+            ( { form | accessKey = s }, Cmd.none, Nothing )
 
-        ( FillingForm form, UpdatePublicUrlPrefix s ) ->
-            ( FillingForm { form | publicUrlPrefix = s }, Cmd.none, Nothing )
+        UpdateSecretKey s ->
+            ( { form | secretKey = s }, Cmd.none, Nothing )
 
-        ( FillingForm form, SubmitForm ) ->
+        UpdateBucket s ->
+            ( { form | bucket = s }, Cmd.none, Nothing )
+
+        UpdateFolderPrefix s ->
+            ( { form | folderPrefix = s }, Cmd.none, Nothing )
+
+        UpdatePublicUrlPrefix s ->
+            ( { form | publicUrlPrefix = s }, Cmd.none, Nothing )
+
+        SubmitForm ->
             let
                 session =
                     makeSession form
@@ -67,13 +81,10 @@ update msg model =
                 saveCmd =
                     session |> encodeSession |> saveSession
             in
-            ( SignedIn session, saveCmd, Just session )
-
-        _ ->
-            ( model, Cmd.none, Nothing )
+            ( form, saveCmd, Just session )
 
 
-makeSession : Form -> Session
+makeSession : Model -> Session
 makeSession form =
     { accessKey = form.accessKey
     , secretKey = form.secretKey
@@ -85,11 +96,45 @@ makeSession form =
 
 
 
+-- DEFAULT CONFIG
+
+
+type alias DefaultConfig =
+    { bucket : Maybe String
+    , publicUrlPrefix : Maybe String
+    , folderPrefix : Maybe String
+    }
+
+
+decodeDefaultConfig : JSON.Decoder DefaultConfig
+decodeDefaultConfig =
+    let
+        field =
+            \name -> JSON.field name JSON.string
+
+        optField =
+            \name -> JSON.maybe (field name)
+    in
+    JSON.map3 DefaultConfig
+        (optField "bucket")
+        (optField "publicUrlPrefix")
+        (optField "folderPrefix")
+
+
+getDefaultConfig : Cmd Msg
+getDefaultConfig =
+    Http.get
+        { url = "defaults.json"
+        , expect = Http.expectJson ReceiveDefaultConfig decodeDefaultConfig
+        }
+
+
+
 -- VIEW
 
 
-viewForm : Html Msg
-viewForm =
+viewForm : Model -> Html Msg
+viewForm form =
     dialog
         { dialogConfig
             | open = True
@@ -103,6 +148,7 @@ viewForm =
                     , onInput = Just UpdateBucket
                     , fullwidth = True
                     , required = True
+                    , value = Just form.bucket
                 }
             , textField
                 { textFieldConfig
@@ -125,6 +171,7 @@ viewForm =
                     , onInput = Just UpdateFolderPrefix
                     , fullwidth = True
                     , required = False
+                    , value = Just form.folderPrefix
                 }
             , textField
                 { textFieldConfig
@@ -132,6 +179,7 @@ viewForm =
                     , onInput = Just UpdatePublicUrlPrefix
                     , fullwidth = True
                     , required = False
+                    , value = Just form.publicUrlPrefix
                 }
             ]
         , actions =

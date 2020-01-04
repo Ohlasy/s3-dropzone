@@ -51,7 +51,7 @@ init flags =
     in
     case JSON.decodeValue decodeFlags flags of
         Err _ ->
-            ( SignedOut SignIn.init, Cmd.none )
+            ( SignedOut SignIn.init, SignIn.getDefaultConfig |> Cmd.map SignInMsg )
 
         Ok session ->
             ( SignedIn session Queue.init, Cmd.none )
@@ -154,8 +154,8 @@ viewTopAppBar model =
 viewContent : Model -> Html Msg
 viewContent model =
     case model of
-        SignedOut _ ->
-            SignIn.viewForm |> Html.map SignInMsg
+        SignedOut form ->
+            SignIn.viewForm form |> Html.map SignInMsg
 
         SignedIn _ jobs ->
             Html.div []
